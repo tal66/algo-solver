@@ -11,9 +11,9 @@ import java.nio.file.Path;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
+    private static String dir = "./input files";
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        String dir = "./input files";
+    public static void main(String[] args) {
         if (args.length > 0) {
             dir = args[0];
         }
@@ -27,7 +27,15 @@ public class Main {
         publisher.subscribe(Event.FILE_CREATED, algoInputHandler);
 
         // init
-        watcher.watchDir();
+        new Thread(() -> algoInputHandler.start()).start();
+        new Thread(() -> {
+            try {
+                watcher.watchDir();
+            } catch (IOException | InterruptedException e) {
+                logger.error("", e);
+                System.exit(1);
+            }
+        }).start();
     }
 
     private static void validate(Path dirPath) {

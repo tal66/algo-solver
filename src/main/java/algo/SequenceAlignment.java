@@ -93,7 +93,7 @@ public class SequenceAlignment implements AlgoSolver{
         }
 
         logger.info("finished solving filename {}", filename);
-        return sb1.append("\n").append(sb2).append("\n").append(cost).reverse().toString();
+        return sb1.append("\n").append(sb2).reverse().append("\n").append(cost).toString();
     }
 
 

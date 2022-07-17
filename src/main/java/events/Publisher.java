@@ -43,7 +43,7 @@ public class Publisher {
             return;
         }
         for (EventSubscriber listener : listeners) {
-            listener.handle(event, data);
+            listener.accept(new EventData(event, data));
         }
     }
 }

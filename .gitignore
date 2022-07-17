@@ -1,13 +1,6 @@
 draft.txt
-
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+Draft.java
+input files/test*.txt
 
 ### IntelliJ IDEA ###
 .idea
@@ -21,3 +14,4 @@ draft.txt
 
 ##
 target/
+test/
