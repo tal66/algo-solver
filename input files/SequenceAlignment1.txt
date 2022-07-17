@@ -1,0 +1,10 @@
+SequenceAlignment
+T A A G G T C A
+A A C A G T T A C C
+2
+1
+
+Solution:
+7
+AACAGTTACC
+TAAGGT-C-A

@@ -1,0 +1,6 @@
+Knapsack
+3 2 4 4
+4 3 2 3
+6
+Solution:
+2 3

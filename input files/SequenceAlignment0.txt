@@ -1,0 +1,10 @@
+SequenceAlignment
+A G T A C G
+A C A T A G
+1
+2
+
+Solution:
+4
+ACATA-G
+A-GTACG
