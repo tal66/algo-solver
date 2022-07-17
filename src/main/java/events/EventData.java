@@ -14,16 +14,8 @@ public class EventData {
         return event;
     }
 
-    public void setEvent(Event event) {
-        this.event = event;
-    }
-
     public String getData() {
         return data;
-    }
-
-    public void setData(String data) {
-        this.data = data;
     }
 
     @Override

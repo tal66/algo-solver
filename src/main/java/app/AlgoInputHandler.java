@@ -30,6 +30,7 @@ public class AlgoInputHandler implements EventSubscriber {
 
     private final BlockingQueue<EventData> queue = new LinkedBlockingQueue<>();
     private static final int QUEUE_LIMIT = 50;
+    private boolean STOPPED = false;
 
     private final ExecutorService algoExecutorService = Executors.newFixedThreadPool(3);
     private final ExecutorService cancelTaskExecutorService = Executors.newFixedThreadPool(1);
@@ -40,6 +41,11 @@ public class AlgoInputHandler implements EventSubscriber {
 
     @Override
     public void accept(EventData eventData) {
+        if (STOPPED){
+            logger.warn("ignoring event. service is stopped");
+            return;
+        }
+
         logger.info("received {}", eventData);
         if (queue.size() > QUEUE_LIMIT){
             logger.error("queue reached max capacity. dropping {}", eventData);
@@ -61,8 +67,9 @@ public class AlgoInputHandler implements EventSubscriber {
 
             String filename = eventData.getData();
             Event event = eventData.getEvent();
-            if (filename.equals(EventData.STOP_MESSAGE)){
+            if (Path.of(filename).getFileName().toString().equals(EventData.STOP_MESSAGE)){
                 logger.warn("stopping (reason: STOP_MESSAGE)");
+                STOPPED = true;
                 break;
             }
 

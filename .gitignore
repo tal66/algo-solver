@@ -8,7 +8,6 @@ input files/test*.txt
 *.iml
 *.ipr
 
-
 ### VS Code ###
 .vscode/
 

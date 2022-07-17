@@ -37,6 +37,7 @@ public class SequenceAlignment implements AlgoSolver{
         for (int i=0; i <= n; i++){
             A[0][i] = i * gapPenalty;
         }
+
         for (int i=1; i <= m; i++){
             String c1 = str1.get(i-1);
             for (int j=1; j <= n; j++){
@@ -45,7 +46,6 @@ public class SequenceAlignment implements AlgoSolver{
                 A[i][j] = Math.min(A[i][j-1] + gapPenalty, A[i-1][j] + gapPenalty);
                 A[i][j] = Math.min(A[i-1][j-1] + match, A[i][j]);
             }
-
         }
         int cost = A[m][n];
 

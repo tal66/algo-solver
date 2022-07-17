@@ -1,0 +1,4 @@
+Knapsack
+<values>        e.g: 3 2 4 4
+<weights>       e.g: 4 3 2 3
+<C>             e.g: 6

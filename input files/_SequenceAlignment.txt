@@ -1,0 +1,5 @@
+SequenceAlignment
+<str1 with spaces>      e.g: A G T A C G
+<str2 with spaces>      e.g: A C A T A G
+<gap>                   e.g: 1
+<mismatch>              e.g: 2

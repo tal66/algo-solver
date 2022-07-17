@@ -36,14 +36,17 @@ public class Publisher {
         listeners.remove(listener);
     }
 
-    public void notifyListeners(Event event, String data) {
+    public void notifyListeners(EventData eventData) {
+        Event event = eventData.getEvent();
         List<EventSubscriber> listeners = listenersByEvent.get(event);
+
         if (listeners == null){
             logger.error("unknown event {}", event);
             return;
         }
+
         for (EventSubscriber listener : listeners) {
-            listener.accept(new EventData(event, data));
+            listener.accept(eventData);
         }
     }
 }

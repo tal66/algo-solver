@@ -1,6 +1,7 @@
 package app;
 
 import events.Event;
+import events.EventData;
 import events.EventEmitter;
 import events.Publisher;
 import org.slf4j.Logger;
@@ -51,14 +52,15 @@ public class DirectoryWatcher implements EventEmitter {
                 }
 
                 Path filePath = Path.of(dir.toString(), filename);
-                emit(event, filePath.toString());
+                EventData eventData = new EventData(event, filePath.toString());
+                emit(eventData);
             }
             watchKey.reset();
         }
     }
 
     @Override
-    public void emit(Event event, String data) {
-        publisher.notifyListeners(event, data);
+    public void emit(EventData eventData) {
+        publisher.notifyListeners(eventData);
     }
 }
