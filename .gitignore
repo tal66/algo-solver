@@ -1,6 +1,9 @@
 draft.txt
 Draft.java
+index-grpc.js
+protos/
 input files/test*.txt
+new-input/
 
 ### IntelliJ IDEA ###
 .idea

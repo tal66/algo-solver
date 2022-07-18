@@ -2,6 +2,7 @@ package app;
 
 import events.Event;
 import events.Publisher;
+import monitor.StatsMonitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,20 +24,30 @@ public class Main {
         // di
         Publisher publisher = new Publisher();
         DirectoryWatcher watcher = new DirectoryWatcher(dirPath, publisher);
-        AlgoInputHandler algoInputHandler = new AlgoInputHandler();
+        AlgoInputHandler algoInputHandler = new AlgoInputHandler(publisher);
+        StatsMonitor statsMonitor = new StatsMonitor();
+
         publisher.subscribe(Event.FILE_CREATED, algoInputHandler);
+        publisher.subscribe(Event.TASK_STATS, statsMonitor);
 
         // init
-        initServices(watcher, algoInputHandler);
+        initServices(watcher, algoInputHandler, statsMonitor);
     }
 
-    private static void initServices(DirectoryWatcher watcher, AlgoInputHandler algoInputHandler) {
+    private static void initServices(DirectoryWatcher watcher, AlgoInputHandler algoInputHandler, StatsMonitor statsMonitor) {
         new Thread(() -> {
             try {
                 algoInputHandler.start();
             } catch (InterruptedException e) {
                 logger.error("", e);
                 System.exit(1);
+            }
+        }).start();
+        new Thread(() -> {
+            try {
+                statsMonitor.start();
+            } catch (InterruptedException e) {
+                logger.error("", e);
             }
         }).start();
         new Thread(() -> {

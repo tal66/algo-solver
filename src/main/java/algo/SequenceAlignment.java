@@ -98,7 +98,7 @@ public class SequenceAlignment implements AlgoSolver{
 
 
     /**
-     * @param data format: SequenceAlignment, <str1>, <str2>, <gap> <mismatch></>. e.g:
+     * @param data format: SequenceAlignment, <str1>, <str2>, <gap>, <mismatch>. e.g:
      *                 SequenceAlignment
      *                 A B C
      *                 A V A

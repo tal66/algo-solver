@@ -3,11 +3,11 @@ package app;
 import algo.AlgoSolver;
 import algo.Knapsack;
 import algo.SequenceAlignment;
-import events.Event;
-import events.EventData;
-import events.EventSubscriber;
+import com.google.gson.Gson;
+import events.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import monitor.TaskStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 
-public class AlgoInputHandler implements EventSubscriber {
+public class AlgoInputHandler implements EventSubscriber, EventEmitter {
     private static final Logger logger = LoggerFactory.getLogger(AlgoInputHandler.class);
 
     private static final int FILE_SIZE_LIMIT = 10*1024;
@@ -29,6 +29,7 @@ public class AlgoInputHandler implements EventSubscriber {
         put("knapsack", Knapsack::new);
         put("sequencealignment", SequenceAlignment::new);
     }};
+    private static final Gson gson = new Gson();
 
     private static final int QUEUE_LIMIT = 50;
     private static final int TASK_TIMEOUT = 15*1000;
@@ -39,6 +40,7 @@ public class AlgoInputHandler implements EventSubscriber {
     private final ExecutorService algoExecutorService = new ThreadPoolExecutor(
             3, 3, 0L, TimeUnit.MILLISECONDS, algoExecutorInnerQueue);
     private boolean STOPPED = false;
+    private final Publisher publisher;
 
     @Getter
     @AllArgsConstructor
@@ -47,7 +49,8 @@ public class AlgoInputHandler implements EventSubscriber {
         EventData eventData;
     }
 
-    public AlgoInputHandler() {
+    public AlgoInputHandler(Publisher publisher) {
+        this.publisher = publisher;
     }
 
     public void start() throws InterruptedException {
@@ -71,9 +74,15 @@ public class AlgoInputHandler implements EventSubscriber {
             }
 
             Future<?> future = algoExecutorService.submit(() -> {
-                handleEvent(filePath, event);
-                logger.info("{} ms (receive event->done). Task <{} {}>)", System.currentTimeMillis() - startTime, filePath, event);
+                String algoName = handleEvent(filePath, event);
+                if (algoName.length() == 0){
+                    algoName = "error";
+                }
+                long totalTime = System.currentTimeMillis() - startTime;
+                logger.info("{} ms (receive event->done). Task <{} {}>)", totalTime, filePath, event);
+                emit(new EventData(Event.TASK_STATS, gson.toJson(new TaskStats(algoName, totalTime))));
             });
+
             futuresQueue.add(new TaskInfo(future, eventData));
         }
     }
@@ -96,6 +105,7 @@ public class AlgoInputHandler implements EventSubscriber {
                     logger.warn("stopping task cancellation service (reason: STOP_MESSAGE)");
                     break;
                 }
+
                 try {
                     taskInfo.future.get(TASK_TIMEOUT, TimeUnit.MILLISECONDS);
                 } catch (InterruptedException | TimeoutException e) {
@@ -124,27 +134,36 @@ public class AlgoInputHandler implements EventSubscriber {
         eventQueue.add(eventData);
     }
 
-    public void handleEvent(String filePath, Event event) {
+    @Override
+    public void emit(EventData eventData) {
+        publisher.notifyListeners(eventData);
+    }
+
+    public String handleEvent(String filePath, Event event) {
+        String algoName = "";
         try{
             logger.info("handling event [{} {}]", event, filePath);
             if (!validateFile(filePath)) {
-                return;
+                return algoName;
             }
 
             List<String> content = Files.readAllLines(Path.of(filePath), StandardCharsets.UTF_8);
-            AlgoSolver solver = getConcreteAlgoSolver(content.get(0));
+            algoName = content.get(0);
+            AlgoSolver solver = getConcreteAlgoSolver(algoName);
 
             if (solver == null){
-                logger.error("unknown algorithm {}.", content.get(0));
-                return;
+                logger.error("unknown algorithm {}.", algoName);
+                return "unknown";
             }
 
             String result = solver.solve(content, filePath);
             appendResultToFile(filePath, result);
 
-        } catch (IOException e){
+        } catch (IOException | IndexOutOfBoundsException e){
             logger.error("filename <{}>: ", filePath, e);
+            return "";
         }
+        return algoName;
     }
 
     private void appendResultToFile(String filePath, String result) {

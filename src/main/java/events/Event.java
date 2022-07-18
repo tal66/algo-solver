@@ -3,7 +3,8 @@ package events;
 public enum Event {
     UNKNOWN(0),
     FILE_CREATED(1),
-    FILE_CHANGED(2);
+    FILE_CHANGED(2),
+    TASK_STATS(3);
 
     private final int value;
 
