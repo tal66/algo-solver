@@ -6,6 +6,8 @@ import algo.SequenceAlignment;
 import events.Event;
 import events.EventData;
 import events.EventSubscriber;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,74 +30,108 @@ public class AlgoInputHandler implements EventSubscriber {
         put("sequencealignment", SequenceAlignment::new);
     }};
 
-    private final BlockingQueue<EventData> queue = new LinkedBlockingQueue<>();
     private static final int QUEUE_LIMIT = 50;
-    private boolean STOPPED = false;
-
-    private final ExecutorService algoExecutorService = Executors.newFixedThreadPool(3);
-    private final ExecutorService cancelTaskExecutorService = Executors.newFixedThreadPool(1);
     private static final int TASK_TIMEOUT = 15*1000;
 
+    private final BlockingQueue<EventData> eventQueue = new LinkedBlockingQueue<>(QUEUE_LIMIT);
+    private final BlockingQueue<TaskInfo> futuresQueue = new LinkedBlockingQueue<>();
+    private final LinkedBlockingQueue<Runnable> algoExecutorInnerQueue = new LinkedBlockingQueue<>(QUEUE_LIMIT);
+    private final ExecutorService algoExecutorService = new ThreadPoolExecutor(
+            3, 3, 0L, TimeUnit.MILLISECONDS, algoExecutorInnerQueue);
+    private boolean STOPPED = false;
+
+    @Getter
+    @AllArgsConstructor
+    class TaskInfo{
+        Future<?> future;
+        EventData eventData;
+    }
+
     public AlgoInputHandler() {
+    }
+
+    public void start() throws InterruptedException {
+        logger.info("started");
+
+        startCancellationService();
+
+        while (true){
+            EventData eventData = null;
+
+            eventData = eventQueue.take();
+            long startTime = System.currentTimeMillis();
+            String filePath = eventData.getData();
+            Event event = eventData.getEvent();
+
+            if (Path.of(filePath).getFileName().toString().equals(EventData.STOP_MESSAGE)){
+                logger.warn("stopping service (reason: STOP_MESSAGE)");
+                STOPPED = true;
+                futuresQueue.add(new TaskInfo(null, eventData));
+                break;
+            }
+
+            Future<?> future = algoExecutorService.submit(() -> {
+                handleEvent(filePath, event);
+                logger.info("{} ms (receive event->done). Task <{} {}>)", System.currentTimeMillis() - startTime, filePath, event);
+            });
+            futuresQueue.add(new TaskInfo(future, eventData));
+        }
+    }
+
+    private void startCancellationService() {
+        // get() blocks, so another thread. maybe there's a better way to cancel
+        new Thread(()-> {
+            while (true) {
+                TaskInfo taskInfo = null;
+                try {
+                    taskInfo = futuresQueue.take();
+                } catch (InterruptedException e) {
+                    logger.error("stopping task cancellation service (reason: interrupted)", e);
+                    break;
+                }
+
+                EventData eventData = taskInfo.eventData;
+                String filename = Path.of(eventData.getData()).getFileName().toString();
+                if (filename.equals(EventData.STOP_MESSAGE)){
+                    logger.warn("stopping task cancellation service (reason: STOP_MESSAGE)");
+                    break;
+                }
+                try {
+                    taskInfo.future.get(TASK_TIMEOUT, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException | TimeoutException e) {
+                    taskInfo.future.cancel(true); // *Attempts* to cancel
+                    logger.warn("canceling task for [{} {}] (reason: timeout).", eventData.getEvent(), eventData.getData());
+                } catch (ExecutionException e) {
+                    logger.error("", e);
+                }
+            }
+        }).start();
     }
 
     @Override
     public void accept(EventData eventData) {
         if (STOPPED){
-            logger.warn("ignoring event. service is stopped");
+            logger.warn("ignoring event (service is stopped). {}", eventData);
             return;
         }
 
         logger.info("received {}", eventData);
-        if (queue.size() > QUEUE_LIMIT){
-            logger.error("queue reached max capacity. dropping {}", eventData);
+        if (eventQueue.size() >= QUEUE_LIMIT){
+            logger.error("dropping {} (reason: queue max capacity) ", eventData);
             return;
         }
-        queue.add(eventData);
+
+        eventQueue.add(eventData);
     }
 
-    public void start()  {
-        logger.info("started");
-        while (true){
-            EventData eventData = null;
-            try {
-                eventData = queue.take();
-            } catch (InterruptedException e){
-                logger.error("queue interrupted", e);
-                System.exit(1);
-            }
-
-            String filename = eventData.getData();
-            Event event = eventData.getEvent();
-            if (Path.of(filename).getFileName().toString().equals(EventData.STOP_MESSAGE)){
-                logger.warn("stopping (reason: STOP_MESSAGE)");
-                STOPPED = true;
-                break;
-            }
-
-            Future<?> future = algoExecutorService.submit(() -> handle(filename, event));
-            // get() blocks, so another thread. but maybe there's a better way to cancel
-            cancelTaskExecutorService.submit(()-> {
-                try {
-                    future.get(TASK_TIMEOUT, TimeUnit.MILLISECONDS);
-                } catch (InterruptedException | TimeoutException e) {
-                    future.cancel(true); // *Attempts* to cancel
-                    logger.warn("canceling task for [{} {}] (reason: timeout).", event, filename);
-                } catch (ExecutionException e) {
-                    logger.error("", e);
-                }
-            });
-        }
-    }
-
-    public void handle(String filename, Event event) {
+    public void handleEvent(String filePath, Event event) {
         try{
-            logger.info("handling event [{} {}]", event, filename);
-            if (!validateFile(filename)) {
+            logger.info("handling event [{} {}]", event, filePath);
+            if (!validateFile(filePath)) {
                 return;
             }
 
-            List<String> content = Files.readAllLines(Path.of(filename), StandardCharsets.UTF_8);
+            List<String> content = Files.readAllLines(Path.of(filePath), StandardCharsets.UTF_8);
             AlgoSolver solver = getConcreteAlgoSolver(content.get(0));
 
             if (solver == null){
@@ -103,20 +139,20 @@ public class AlgoInputHandler implements EventSubscriber {
                 return;
             }
 
-            String result = solver.solve(content, filename);
-            appendResultToFile(filename, result);
+            String result = solver.solve(content, filePath);
+            appendResultToFile(filePath, result);
 
         } catch (IOException e){
-            logger.error("filename <{}>: ", filename, e);
+            logger.error("filename <{}>: ", filePath, e);
         }
     }
 
-    private void appendResultToFile(String filename, String result) {
-        logger.info("insert result to file {}", filename);
+    private void appendResultToFile(String filePath, String result) {
+        logger.info("insert result to file <{}>", filePath);
         try {
-            Files.write(Path.of(filename), ("\nSolution:\n"+result).getBytes(StandardCharsets.UTF_8), StandardOpenOption.APPEND);
+            Files.write(Path.of(filePath), ("\nSolution:\n"+result).getBytes(StandardCharsets.UTF_8), StandardOpenOption.APPEND);
         } catch (IOException e) {
-            logger.error("filename <{}>: {}", filename, e);
+            logger.error("filename <{}>: {}", filePath, e);
         }
     }
 

@@ -25,7 +25,7 @@ public class Knapsack implements AlgoSolver{
      * @return item indices
      */
     public String solve(List<String> data, String filename){
-        logger.info("solving filename {}", filename);
+        logger.info("solving file <{}>", filename);
         this.filename = filename;
 
         boolean success = parse(data);
@@ -63,7 +63,7 @@ public class Knapsack implements AlgoSolver{
         }
 
         Collections.reverse(items);
-        logger.info("finished solving filename {}", filename);
+        logger.info("finished solving file <{}>", filename);
         return Joiner.on(" ").join(items);
     }
 

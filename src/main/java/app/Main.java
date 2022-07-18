@@ -27,7 +27,18 @@ public class Main {
         publisher.subscribe(Event.FILE_CREATED, algoInputHandler);
 
         // init
-        new Thread(() -> algoInputHandler.start()).start();
+        initServices(watcher, algoInputHandler);
+    }
+
+    private static void initServices(DirectoryWatcher watcher, AlgoInputHandler algoInputHandler) {
+        new Thread(() -> {
+            try {
+                algoInputHandler.start();
+            } catch (InterruptedException e) {
+                logger.error("", e);
+                System.exit(1);
+            }
+        }).start();
         new Thread(() -> {
             try {
                 watcher.watchDir();
@@ -40,7 +51,7 @@ public class Main {
 
     private static void validate(Path dirPath) {
         if (Files.notExists(dirPath)){
-            logger.error("Directory {} doesn't exist", dirPath);
+            logger.error("Directory <{}> doesn't exist", dirPath);
             System.exit(1);
         } else if(!Files.isDirectory(dirPath)){
             logger.error("<{}> not a directory", dirPath);

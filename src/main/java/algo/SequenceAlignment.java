@@ -20,7 +20,7 @@ public class SequenceAlignment implements AlgoSolver{
 
     @Override
     public String solve(List<String> data, String filename) {
-        logger.info("solving filename {}", filename);
+        logger.info("solving file <{}>", filename);
         boolean success = parse(data);
         if (!success){
             return "";
@@ -92,7 +92,7 @@ public class SequenceAlignment implements AlgoSolver{
             }
         }
 
-        logger.info("finished solving filename {}", filename);
+        logger.info("finished solving file <{}>", filename);
         return sb1.append("\n").append(sb2).reverse().append("\n").append(cost).toString();
     }
 
