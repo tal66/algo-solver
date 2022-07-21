@@ -25,7 +25,7 @@ public class Main {
         Publisher publisher = new Publisher();
         DirectoryWatcher watcher = new DirectoryWatcher(dirPath, publisher);
         AlgoInputHandler algoInputHandler = new AlgoInputHandler(publisher);
-        StatsMonitor statsMonitor = new StatsMonitor();
+        StatsMonitor statsMonitor = new StatsMonitor(8011, 8010);
 
         publisher.subscribe(Event.FILE_CREATED, algoInputHandler);
         publisher.subscribe(Event.TASK_STATS, statsMonitor);
@@ -61,10 +61,10 @@ public class Main {
     }
 
     private static void validate(Path dirPath) {
-        if (Files.notExists(dirPath)){
+        if (Files.notExists(dirPath)) {
             logger.error("Directory <{}> doesn't exist", dirPath);
             System.exit(1);
-        } else if(!Files.isDirectory(dirPath)){
+        } else if (!Files.isDirectory(dirPath)) {
             logger.error("<{}> not a directory", dirPath);
             System.exit(1);
         }

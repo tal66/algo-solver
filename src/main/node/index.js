@@ -1,41 +1,26 @@
-const net = require("net");
+const dgram = require("node:dgram");
 
 const port = 8010;
-const server = net.createServer();
+const server = dgram.createSocket("udp4");
 
-server.listen(port, function () {
+server.bind(port);
+
+server.on("listening", () => {
   console.log(`listening on ${port}`);
 });
 
 let stats = {};
 
-server.on("connection", function (socket) {
-  console.log(`new connection ${socket.remotePort}`);
+setInterval(() => {
+  console.clear();
+  console.table(stats);
+}, 350);
 
-  setInterval(() => {
-    console.clear();
-    console.table(stats);
-  }, 250);
-
-  socket.on("data", function (chunk) {
-    const data = chunk.toString();
-    data.split("\n").forEach((item) => {
-      if (item.length > 1) {
-        try {
-          let item_stats = JSON.parse(item);
-          let algo = item_stats.algo;
-          delete item_stats["algo"];
-          stats[algo] = item_stats;
-        } catch (e) {}
-      }
-    });
-  });
-
-  socket.on("end", function () {
-    console.log("ending connection");
-  });
-
-  socket.on("error", function (err) {
-    console.log(`error: ${err}`);
-  });
+server.on("message", (msg, info) => {
+  try {
+    let item_stats = JSON.parse(msg);
+    let algo = item_stats.algo;
+    delete item_stats["algo"];
+    stats[algo] = item_stats;
+  } catch (e) {}
 });

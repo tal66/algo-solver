@@ -3,12 +3,12 @@ package algo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
+
 
 public class SequenceAlignment implements AlgoSolver{
     private static final Logger logger = LoggerFactory.getLogger(SequenceAlignment.class);
+
     private String filename;
     private int gapPenalty;
     private int noMatchPenalty;
@@ -98,7 +98,7 @@ public class SequenceAlignment implements AlgoSolver{
 
 
     /**
-     * @param data format: SequenceAlignment, <str1>, <str2>, <gap>, <mismatch>. e.g:
+     * @param data format: SequenceAlignment, [str1], [str2], [gap], [mismatch]. e.g:
      *                 SequenceAlignment
      *                 A B C
      *                 A V A
@@ -108,14 +108,12 @@ public class SequenceAlignment implements AlgoSolver{
     @Override
     public boolean parse(List<String> data){
         try {
-            String spaces = "\\s+";
-            str1 = Arrays.stream(data.get(1).strip().split(spaces))
-                    .collect(Collectors.toList());
-            str2 = Arrays.stream(data.get(2).strip().split(spaces))
-                    .collect(Collectors.toList());
+            str1 = Util.splitBySpaces(data, 1);
+            str2 = Util.splitBySpaces(data, 2);
             logger.debug("str1 length = {},  str2 length = {}", str1.size(), str2.size());
-            gapPenalty = Integer.parseInt(data.get(3).strip().split(spaces)[0]);
-            noMatchPenalty = Integer.parseInt(data.get(4).strip().split(spaces)[0]);
+
+            gapPenalty = Util.getInt(data, 3);
+            noMatchPenalty = Util.getInt(data, 4);
             logger.debug("gapPenalty = {},  noMatchPenalty = {}", gapPenalty, noMatchPenalty);
         } catch (Exception e){
             logger.error("file {}: parsing error. {}", filename, e);

@@ -4,13 +4,12 @@ import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import events.EventData;
 import events.EventSubscriber;
-import lombok.ToString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.net.Socket;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -18,21 +17,21 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class StatsMonitor implements EventSubscriber {
     private static final Logger logger = LoggerFactory.getLogger(StatsMonitor.class);
     private static final Gson gson = new Gson();
-    private static final int port = 8010;
 
-    private final HashMap<String, AvgStats> avgStatsByAlgo = new HashMap<>();
+    private final SocketAddress clientsocketAddress;
+    private final SocketAddress socketAddress;
+    private final HashMap<String, UsageStats> statsByAlgo = new HashMap<>();
     private final BlockingQueue<TaskStats> queue = new LinkedBlockingQueue<>();
-    private Socket socket = null;
+    private DatagramSocket socket = null;
 
-    @ToString
-    class AvgStats{
+    static class UsageStats {
         String algo;
         double avgTime;
         long maxTime;
         long minTime;
         int timesUsed;
 
-        public AvgStats(String algo, double avgTime) {
+        public UsageStats(String algo, double avgTime) {
             this.algo = algo;
             this.avgTime = avgTime;
             this.timesUsed = 1;
@@ -41,56 +40,60 @@ public class StatsMonitor implements EventSubscriber {
         }
     }
 
+    public StatsMonitor(int port, int clientPort) {
+        socketAddress = new InetSocketAddress("localhost", port);
+        clientsocketAddress = new InetSocketAddress("localhost", clientPort);
+    }
+
     public void start() throws InterruptedException {
         logger.info("started");
-        startSocket();
+
+        boolean success = startSocket();
+        if (!success){
+            return;
+        }
 
         while (true){
             TaskStats taskStats = queue.take();
             String algo = taskStats.getAlgorithm();
             long time_ms = taskStats.getTime_ms();
 
-            AvgStats avgStats = avgStatsByAlgo.get(algo);
-            if (avgStats == null){
-                avgStats = new AvgStats(algo, time_ms);
-                avgStatsByAlgo.put(algo, avgStats);
+            UsageStats usageStats = statsByAlgo.get(algo);
+            if (usageStats == null){
+                usageStats = new UsageStats(algo, time_ms);
+                statsByAlgo.put(algo, usageStats);
             } else {
-                avgStats.timesUsed++;
-                double avg = avgStats.avgTime;
-                avg += (time_ms - avg) / avgStats.timesUsed;
-                avgStats.avgTime = Math.round(avg * 100.0) / 100.0;
+                usageStats.timesUsed++;
+                double avg = usageStats.avgTime;
+                avg += (time_ms - avg) / usageStats.timesUsed;
+                usageStats.avgTime = Math.round(avg * 100.0) / 100.0;
             }
 
-            if (time_ms > avgStats.maxTime){
-                avgStats.maxTime = time_ms;
-            } else if (time_ms < avgStats.minTime){
-                avgStats.minTime = time_ms;
+            if (time_ms > usageStats.maxTime){
+                usageStats.maxTime = time_ms;
+            } else if (time_ms < usageStats.minTime){
+                usageStats.minTime = time_ms;
             }
 
-            sendData(gson.toJson(avgStats, AvgStats.class));
+            sendData(gson.toJson(usageStats, UsageStats.class));
         }
     }
 
     public boolean startSocket(){
         try {
-            socket = new Socket("localhost", port);
+            socket = new DatagramSocket(socketAddress);
             return true;
         } catch (Exception e) {
-            logger.error("can't connect to monitor server ({})", e.getMessage());
+            logger.error("can't bind to monitor socket ({})", e.getMessage());
             return false;
         }
     }
 
     private void sendData(String data){
         try {
-            if (socket == null || !socket.isConnected()){
-                boolean success = startSocket();
-                if (!success){
-                    return;
-                }
-            }
-            var out = new PrintWriter(socket.getOutputStream(), true);
-            out.println(data);
+            byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+            DatagramPacket packet = new DatagramPacket(bytes, bytes.length, clientsocketAddress);
+            socket.send(packet);
         } catch (IOException e) {
             logger.error("", e);
         }
@@ -98,14 +101,12 @@ public class StatsMonitor implements EventSubscriber {
 
     @Override
     public void accept(EventData eventData) {
-        TaskStats taskStats = null;
         try{
-            taskStats = gson.fromJson(eventData.getData(), TaskStats.class);
+            TaskStats taskStats = gson.fromJson(eventData.getData(), TaskStats.class);
+            queue.add(taskStats);
         } catch (JsonSyntaxException e){
             logger.error("parse error {}", eventData);
             return;
         }
-
-        queue.add(taskStats);
     }
 }

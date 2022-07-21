@@ -5,10 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class Knapsack implements AlgoSolver{
     private static final Logger logger = LoggerFactory.getLogger(Knapsack.class);
@@ -56,7 +54,7 @@ public class Knapsack implements AlgoSolver{
             if (c - weights.get(item) < 0){
                 continue;
             }
-            if (A[item][c] < A[item][c - weights.get(item)] + values.get(item)){
+            if (A[i-1][c] < A[i-1][c - weights.get(item)] + values.get(item)){
                 items.add(item);
                 c -= weights.get(item);
             }
@@ -68,7 +66,7 @@ public class Knapsack implements AlgoSolver{
     }
 
     /**
-     * @param data format: Knapsack, <values>, <weights>, <C>. e.g:
+     * @param data format: Knapsack, [values], [weights], [C]. e.g:
      *                 Knapsack
      *                 1 5 6
      *                 2 4 5
@@ -76,14 +74,9 @@ public class Knapsack implements AlgoSolver{
      */
     public boolean parse(List<String> data){
         try {
-            String spaces = "\\s+";
-            values = Arrays.stream(data.get(1).strip().split(spaces))
-                    .map(x -> Integer.parseInt(x))
-                    .collect(Collectors.toList());
-            weights = Arrays.stream(data.get(2).strip().split(spaces))
-                    .map(x -> Integer.parseInt(x))
-                    .collect(Collectors.toList());
-            C = Integer.parseInt(data.get(3).strip().split(spaces)[0]);
+            values = Util.splitBySpacesToIntegers(data, 1);
+            weights = Util.splitBySpacesToIntegers(data, 2);
+            C = Util.getInt(data, 3);
         } catch (Exception e){
             logger.error("file {}: parsing error. {}", filename, e);
             return false;
